@@ -1,0 +1,1431 @@
+<html>
+	
+	<!--Edit history-->
+	<!--22/01/2010 Removed NrOfUsers from Mobile CRM ImportMembersModule API and placed it in the URL directly | Added Orange France Live environment-->
+	<!--12/03/2010 Adding optional mCRM Import Members Module parametes in the relevant area-->
+	<!--15/03/2010 Adding the function to calculate the optional parameters of mCRM Import Members Module and add them in the http request-->
+	<!--16/03/2010 Added a test chunk of code to introduce the multiple MO injections with continuous msisdns-->
+	<!--25/05/2010 Added the QTel server IP and Port | Removed Cellular South | Added parameters for the different servers (in case two servers share the same IP)-->
+	<!--25/05/2010 Fixed a bug with the retries being set to nul by default that in someway affected the submition-->
+	
+	<!--ToDo
+	1. Add all mCRM parameters (DONE)
+	2. Add function to inject an MO multiple times (Partially Done, may need restructure of the main functions to include a delay)
+	-->
+	
+	<title>ElGreco HTTP request simulation page</title>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-7">
+		<SCRIPT LANGUAGE="JavaScript">
+        //Global variables that will be used to store the values of the form
+            
+        //General values for the request
+        var IPVar = "";
+        var ServerVar = "";
+        var PortVar = "";
+        var PathVar = "";
+        //Mobile CRM import module parameters
+        var ComIDsVar = "";
+    		var ProfKeyVar = "";
+    		var MsisdnVar = "";
+    		var RegChannelVar = "";
+    		
+        //Optional parameters
+        //String variable for the total of optional attributes
+    		var OptVars = "";
+    		
+        //MQube MO Injection module paramerers
+    		var MQube_MsisdnVar = "";
+    		var MQube_SCVar = "";
+    		var MQube_MessageVar = "";
+    		var MQube_RetriesVar = "";
+    		
+    		//WIND http platform MO Injection module paramerers
+    		var WIND_MsisdnVar = "";
+    		var WIND_SCVar = "";
+    		var WIND_MessageVar = "";
+    		var WIND_RetriesVar = "";
+    		
+    		//Kannel platform MO Injection module paramerers
+    		var Kannel_MsisdnVar = "";
+    		var Kannel_SCVar = "";
+    		var Kannel_MessageVar = "";
+    		var Kannel_SMSCVar = "";
+    		var Kannel_RetriesVar = "";
+    		
+    		//AVEA platform MO Injection module paramerers
+    		var Avea_MsisdnVar = "";
+    		var Avea_SCVar = "";
+    		var Avea_MessageVar = "";
+    		var Avea_RetriesVar = "";
+    		
+    		//Globul platform MO Injection module paramerers
+    		var Globul_MsisdnVar = "";
+    		var Globul_SCVar = "";
+    		var Globul_MessageVar = "";
+    		var Globul_RetriesVar = "";
+    		
+    		//MQube MO Injection module paramerers
+    		var Verisign_MsisdnVar = "";
+    		var Verisign_SCVar = "";
+    		var Verisign_MessageVar = "";
+    		var Verisign_RetriesVar = "";
+    		
+    		//Default values of servers (this is needed in case tow servers share the same IP)
+    		var WIND_QA_IP="10.1.1.105";
+    		var WIND_Staging_IP="10.1.1.107";
+    		var WIND_Live_IP="10.1.252.10";
+    		var AVEA_QA_IP="10.130.32.13";
+    		var AVEA_Live_IP="aveaapp01.velti.com";
+    		var Globul_Live_IP="10.41.1.13";
+    		var Orange_France_Staging_IP="mcrm.lon3.velti.net";
+    		var Orange_France_Live_IP="10.130.66.10";
+    		var QTel_Staging_IP="10.130.32.13";
+    		var QTel_Live_IP="10.64.102.202";
+    		
+			//Function that will be invoked when the Submit button is pressed and the relevant API will be invoked in the lower frame i the page
+			function InvokeAPI(form)
+			{
+                CalculateParams(form);
+                HitURL();
+            }
+            
+            //Function that will be invoked when the Show Produced URL button is pressed and will show the URL created without hitting it (I think)
+            function ProduceURL(form)
+            {
+                CalculateParams(form);
+                ShowURL();
+            }
+            
+            //This function is used to retrieve the values from the form and store them in the global variables
+            function CalculateParams (form)
+			{
+            //General values for the request
+    		IPVar=form.IP.value;
+    		if (IPVar!="")
+    		{
+    			ServerVar=IPVar;
+    		}
+    		else
+    		{
+    			switch (form.Server.value)
+    			{
+    				case "WIND QA": ServerVar=WIND_QA_IP; break;
+    				case "WIND Staging": ServerVar=WIND_Staging_IP; break;
+    				case "WIND Live": ServerVar=WIND_Live_IP; break;
+    				case "AVEA QA": ServerVar=AVEA_QA_IP; break;
+    				case "AVEA Live": ServerVar=AVEA_Live_IP; break;
+    				case "Globul Live": ServerVar=Globul_Live_IP; break;
+    				case "Orange France Staging": ServerVar=Orange_France_Staging_IP; break;
+    				case "Orange France Live": ServerVar=Orange_France_Live_IP; break;
+    				case "QTel Staging": ServerVar=QTel_Staging_IP; break;
+    				case "QTel Live": ServerVar=QTel_Live_IP; break;
+    			}
+    		}
+    		PortVar = form.Porta.value;
+    		PathVar = form.Path.value;
+    		
+    		//Mobile CRM import module parameters
+    		ComIDsVar = form.ComIDs.value;
+    		ProfKeyVar = form.ProfKey.value;
+    		MsisdnVar = form.Msisdn.value;
+    		RegChannelVar = form.RegChannel.value;
+                
+                //Calculating values only if they are inserted
+                if (form.Delivery_Enabled.value!="")
+                {
+                    OptVars=OptVars+"DELIVERY_ENABLED0="+form.Delivery_Enabled.value;
+                }
+                if (form.Created.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&CREATED0="+form.Created.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"CREATED0="+form.Created.value;
+                    }
+                }
+                if (form.Last_Updated.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&LAST_UPDATED0="+form.Last_Updated.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"LAST_UPDATED0="+form.Last_Updated.value;
+                    }
+                }
+                if (form.Is_Male.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_GENDER_MALE0="+form.Is_Male.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_GENDER_MALE0="+form.Is_Male.value;
+                    }
+                }
+                if (form.Is_GPRS.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_GPRS_ENABLED0="+form.Is_GPRS.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_GPRS_ENABLED0="+form.Is_GPRS.value;
+                    }
+                }
+                if (form.Is_3G.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_3G_ENABLED0="+form.Is_3G.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_3G_ENABLED0="+form.Is_3G.value;
+                    }
+                }
+                if (form.Is_Promo_Consent_Needed.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_PROMO_CONSENT_NEEDED0="+form.Is_Promo_Consent_Needed.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_PROMO_CONSENT_NEEDED0="+form.Is_Promo_Consent_Needed.value;
+                    }
+                }
+                if (form.Birth_Date.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&BIRTH_DATE0="+form.Birth_Date.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"BIRTH_DATE0="+form.Birth_Date.value;
+                    }
+                }
+                if (form.Email.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&EMAIL0="+form.Email.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"EMAIL0="+form.Email.value;
+                    }
+                }
+                if (form.FName.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&FIRST_NAME0="+form.FName.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"FIRST_NAME0="+form.FName.value;
+                    }
+                }
+                if (form.LName.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&LAST_NAME0="+form.LName.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"LAST_NAME0="+form.LName.value;
+                    }
+                }
+                if (form.Reg_Date.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&REGISTRATION_DATE0="+form.Reg_Date.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"REGISTRATION_DATE0="+form.Reg_Date.value;
+                    }
+                }
+                if (form.Est_Birth_Date.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&ESTIMATED_BIRTH_DATE0="+form.Est_Birth_Date.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"ESTIMATED_BIRTH_DATE0="+form.Est_Birth_Date.value;
+                    }
+                }
+                if (form.Marital_Status.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&MARITAL_STATUS0="+form.Marital_Status.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"MARITAL_STATUS0="+form.Marital_Status.value;
+                    }
+                }
+                if (form.Address.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&ADDRESS0="+form.Address.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"ADDRESS0="+form.Address.value;
+                    }
+                }
+                if (form.Zip_Code.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&ZIP_CODE0="+form.Zip_Code.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"ZIP_CODE0="+form.Zip_Code.value;
+                    }
+                }
+                if (form.Postal_Code.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&POSTAL_CODE0="+form.Postal_Code.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"POSTAL_CODE0="+form.Postal_Code.value;
+                    }
+                }
+                if (form.City.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&CITY0="+form.City.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"CITY0="+form.City.value;
+                    }
+                }
+                if (form.State.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&STATE0="+form.State.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"STATE0="+form.State.value;
+                    }
+                }
+                if (form.Country.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&COUNTRY0="+form.Country.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"COUNTRY0="+form.Country.value;
+                    }
+                }
+                if (form.Basketball_Team.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&BASKETBALL_TEAM0="+form.Basketball_Team.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"BASKETBALL_TEAM0="+form.Basketball_Team.value;
+                    }
+                }
+                if (form.Football_Team.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&FOOTBALL_TEAM0="+form.Football_Team.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"FOOTBALL_TEAM0="+form.Football_Team.value;
+                    }
+                }
+                if (form.Baseball_Team.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&BASEBALL_TEAM0="+form.Baseball_Team.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"BASEBALL_TEAM0="+form.Baseball_Team.value;
+                    }
+                }
+                if (form.Softball_Team.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&SOFTBALL_TEAM0="+form.Softball_Team.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"SOFTBALL_TEAM0="+form.Softball_Team.value;
+                    }
+                }
+                if (form.Favorite_Artist.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&FAVORITE_ARTIST0="+form.Favorite_Artist.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"FAVORITE_ARTIST0="+form.Favorite_Artist.value;
+                    }
+                }
+                if (form.Bulk_Consent.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&BULK_CONSENT0="+form.Bulk_Consent.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"BULK_CONSENT0="+form.Bulk_Consent.value;
+                    }
+                }
+                if (form.Handset_Brand.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&HANDSET_BRAND0="+form.Handset_Brand.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"HANDSET_BRAND0="+form.Handset_Brand.value;
+                    }
+                }
+                if (form.Handset_Model.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&HANDSET_MODEL0="+form.Handset_Model.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"HANDSET_MODEL0="+form.Handset_Model.value;
+                    }
+                }
+                if (form.Realtones_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_REALTONES_ENABLED0="+form.Realtones_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_REALTONES_ENABLED0="+form.Realtones_Enabled.value;
+                    }
+                }
+                if (form.Ringtones_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_RINGTONES_ENABLED0="+form.Ringtones_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_RINGTONES_ENABLED0="+form.Ringtones_Enabled.value;
+                    }
+                }
+                if (form.Wallpapers_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_WALLPAPER_ENABLED0="+form.Wallpapers_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_WALLPAPER_ENABLED0="+form.Wallpapers_Enabled.value;
+                    }
+                }
+                if (form.Screensavers_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_SCREENSAVER_ENABLED0="+form.Screensavers_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_SCREENSAVER_ENABLED0="+form.Screensavers_Enabled.value;
+                    }
+                }
+                if (form.Video_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_VIDEO_ENABLED0="+form.Video_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_VIDEO_ENABLED0="+form.Video_Enabled.value;
+                    }
+                }
+                if (form.Web_Reg_id.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&WEB_REGISTR_ID0="+form.Web_Reg_id.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"WEB_REGISTR_ID0="+form.Web_Reg_id.value;
+                    }
+                }
+                if (form.Wap_Reg_id.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&WAP_REGISTR_ID0="+form.Wap_Reg_id.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"WAP_REGISTR_ID0="+form.Wap_Reg_id.value;
+                    }
+                }
+                if (form.Pref_ISO_Lang_Code.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&PREF_ISO_LANG_CODE0="+form.Pref_ISO_Lang_Code.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"PREF_ISO_LANG_CODE0="+form.Pref_ISO_Lang_Code.value;
+                    }
+                }
+                if (form.Third_Party_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_3RDPARTY_ENABLED0="+form.Third_Party_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_3RDPARTY_ENABLED0="+form.Third_Party_Enabled.value;
+                    }
+                }
+                if (form.Monthly_Income.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&MONTHLY_INCOME0="+form.Monthly_Income.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"MONTHLY_INCOME0="+form.Monthly_Income.value;
+                    }
+                }
+                if (form.Yearly_Income.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&YEARLY_INCOME0="+form.Yearly_Income.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"YEARLY_INCOME0="+form.Yearly_Income.value;
+                    }
+                }
+                if (form.Country_ID.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&COUNTRY_ID0="+form.Country_ID.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"COUNTRY_ID0="+form.Country_ID.value;
+                    }
+                }
+                if (form.Sports_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&SPORTS_SERVICE0="+form.Sports_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"SPORTS_SERVICE0="+form.Sports_Service.value;
+                    }
+                }
+                if (form.Music_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&MUSIC_SERVICE0="+form.Music_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"MUSIC_SERVICE0="+form.Music_Service.value;
+                    }
+                }
+                if (form.News_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&NEWS_SERVICE0="+form.News_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"NEWS_SERVICE0="+form.News_Service.value;
+                    }
+                }
+                if (form.Games_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&GAMES_SERVICE0="+form.Games_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"GAMES_SERVICE0="+form.Games_Service.value;
+                    }
+                }
+                if (form.Social_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&SOCIAL_SERVICE0="+form.Social_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"SOCIAL_SERVICE0="+form.Social_Service.value;
+                    }
+                }
+                if (form.Sports_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&SPORTS_SERVICE0="+form.Sports_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"SPORTS_SERVICE0="+form.Sports_Enabled.value;
+                    }
+                }
+                if (form.Music_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&MUSIC_ENABLED0="+form.Music_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"MUSIC_ENABLED0="+form.Music_Enabled.value;
+                    }
+                }
+                if (form.News_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&NEWS_ENABLED0="+form.News_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"NEWS_ENABLED0="+form.News_Enabled.value;
+                    }
+                }
+                if (form.Games_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&GAMES_ENABLED0="+form.Games_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"GAMES_ENABLED0="+form.Games_Enabled.value;
+                    }
+                }
+                if (form.Social_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&SOCIAL_ENABLED0="+form.Social_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"SOCIAL_ENABLED0="+form.Social_Enabled.value;
+                    }
+                }
+                if (form.Students_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&STUDENTS_SERVICE0="+form.Students_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"STUDENTS_SERVICE0="+form.Students_Service.value;
+                    }
+                }
+                if (form.Parents_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&PARENTS_SERVICE0="+form.Parents_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"PARENTS_SERVICE0="+form.Parents_Service.value;
+                    }
+                }
+                if (form.Faculty_Staff_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&FACULTY_STAFF_SERVICE0="+form.Faculty_Staff_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"FACULTY_STAFF_SERVICE0="+form.Faculty_Staff_Service.value;
+                    }
+                }
+                if (form.Band_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&BAND_SERVICE0="+form.Band_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"BAND_SERVICE0="+form.Band_Service.value;
+                    }
+                }
+                if (form.Football_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&FOOTBALL_SERVICE0="+form.Football_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"FOOTBALL_SERVICE0="+form.Football_Service.value;
+                    }
+                }
+                if (form.Basketball_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&BASKETBALL_SERVICE0="+form.Basketball_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"BASKETBALL_SERVICE0="+form.Basketball_Service.value;
+                    }
+                }
+                if (form.Performing_Arts_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&PERFORMING_ARTS_SERVICE0="+form.Performing_Arts_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"PERFORMING_ARTS_SERVICE0="+form.Performing_Arts_Service.value;
+                    }
+                }
+                if (form.Senior_Class_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&SENIOR_CLASS_SERVICE0="+form.Senior_Class_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"SENIOR_CLASS_SERVICE0="+form.Senior_Class_Service.value;
+                    }
+                }
+                if (form.School_Booster_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&SCHOOL_BOOSTERS_SERVICE0="+form.School_Booster_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"SCHOOL_BOOSTERS_SERVICE0="+form.School_Booster_Service.value;
+                    }
+                }
+                if (form.Yall_vs_Us_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&YALL_VS_US_SERVICE0="+form.Yall_vs_Us_Service.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"YALL_VS_US_SERVICE0="+form.Yall_vs_Us_Service.value;
+                    }
+                }
+                if (form.Students_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&STUDENTS_ENABLED0="+form.Students_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"STUDENTS_ENABLED0="+form.Students_Enabled.value;
+                    }
+                }
+                if (form.Parents_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&PARENTS_ENABLED0="+form.Parents_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"PARENTS_ENABLED0="+form.Parents_Enabled.value;
+                    }
+                }
+                if (form.Faculty_Staff_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&FACULTY_STAFF_ENABLEDE0="+form.Faculty_Staff_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"FACULTY_STAFF_ENABLEDE0="+form.Faculty_Staff_Enabled.value;
+                    }
+                }
+                if (form.Band_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&BAND_ENABLED0="+form.Band_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"BAND_ENABLED0="+form.Band_Enabled.value;
+                    }
+                }
+                if (form.Football_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&FOOTBALL_ENABLED0="+form.Football_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"FOOTBALL_ENABLED0="+form.Football_Enabled.value;
+                    }
+                }
+                if (form.Basketball_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&BASKETBALL_ENABLED0="+form.Basketball_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"BASKETBALL_ENABLED0="+form.Basketball_Enabled.value;
+                    }
+                }
+                if (form.Performing_Arts_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&PERFORMING_ARTS_ENABLED0="+form.Performing_Arts_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"PERFORMING_ARTS_ENABLED0="+form.Performing_Arts_Enabled.value;
+                    }
+                }
+                if (form.Senior_Class_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&SENIOR_CLASS_ENABLED0="+form.Senior_Class_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"SENIOR_CLASS_ENABLED0="+form.Senior_Class_Enabled.value;
+                    }
+                }
+                if (form.School_Booster_Service.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&SCHOOL_BOOSTERS_ENABLED0="+form.School_Booster_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"SCHOOL_BOOSTERS_ENABLED0="+form.School_Booster_Enabled.value;
+                    }
+                }
+                if (form.Yall_vs_Us_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&YALL_VS_US_ENABLED0="+form.Yall_vs_Us_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"YALL_VS_US_ENABLED0="+form.Yall_vs_Us_Enabled.value;
+                    }
+                }
+                if (form.User_Agent.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&USER_AGENT0="+form.User_Agent.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"USER_AGENT0="+form.User_Agent.value;
+                    }
+                }
+                if (form.Roaming_Enabled.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&IS_ROAMING_ENABLED0="+form.Roaming_Enabled.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"IS_ROAMING_ENABLED0="+form.Roaming_Enabled.value;
+                    }
+                }
+                if (form.Secondary_Address.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&SECONDARY_ADDRESS0="+form.Secondary_Address.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"SECONDARY_ADDRESS0="+form.Secondary_Address.value;
+                    }
+                }
+                if (form.Prepaid.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&PREPAID0="+form.Prepaid.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"PREPAID0="+form.Prepaid.value;
+                    }
+                }
+                if (form.Postpaid.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&POSTAID0="+form.Postpaid.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"POSTAID0="+form.Postpaid.value;
+                    }
+                }
+                if (form.From_Time.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&FROM_TIME0="+form.From_Time.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"FROM_TIME0="+form.From_Time.value;
+                    }
+                }
+                if (form.Till_Time.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&TILL_TIME0="+form.Till_Time.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"TILL_TIME0="+form.Till_Time.value;
+                    }
+                }
+                if (form.Status.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&STATUS0="+form.Status.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"STATUS0="+form.Status.value;
+                    }
+                }
+                if (form.Pause_Days.value!="")
+                {
+                    if (OptVars!="")
+                    {
+                        OptVars=OptVars+"&PAUSE_DAYS0="+form.Pause_Days.value;
+                    }
+                    else
+                    {
+                        OptVars=OptVars+"PAUSE_DAYS0="+form.Pause_Days.value;
+                    }
+                }
+   		
+    		//MQube MO Injection module paramerers
+    		MQube_MsisdnVar = eval(form.MQube_Msisdn.value);
+    		MQube_SCVar = form.MQube_SC.value;
+    		MQube_MessageVar = form.MQube_Message.value;
+    		MQube_RetriesVar = eval(form.MQube_Retries.value);
+    		
+    		//WIND http platform MO Injection module paramerers
+    		WIND_MsisdnVar = eval(form.WIND_Msisdn.value);
+    		WIND_SCVar = form.WIND_SC.value;
+    		WIND_MessageVar = form.WIND_Message.value;
+    		WIND_RetriesVar = eval(form.WIND_Retries.value);
+    		
+    		//Kannel platform MO Injection module paramerers
+    		Kannel_MsisdnVar = eval(form.Kannel_Msisdn.value);
+    		Kannel_SCVar = form.Kannel_SC.value;
+    		Kannel_MessageVar = form.Kannel_Message.value;
+    		Kannel_SMSCVar = form.Kannel_SMSC.value;
+    		Kannel_RetriesVar = eval(form.Kannel_Retries.value);
+    		
+    		//AVEA platform MO Injection module paramerers
+    		Avea_MsisdnVar = eval(form.Avea_Msisdn.value);
+    		Avea_SCVar = form.Avea_SC.value;
+    		Avea_MessageVar = form.Avea_Message.value;
+    		Avea_RetriesVar = eval(form.Avea_Retries.value);
+    		
+    		//Globul platform MO Injection module paramerers
+    		Globul_MsisdnVar = eval(form.Globul_Msisdn.value);
+    		Globul_SCVar = form.Globul_SC.value;
+    		Globul_MessageVar = form.Globul_Message.value;
+    		Globul_RetriesVar = eval(form.Globul_Retries.value);
+    		
+    		//MQube MO Injection module paramerers
+    		Verisign_MsisdnVar = eval(form.Verisign_Msisdn.value);
+    		Verisign_SCVar = form.Verisign_SC.value;
+    		Verisign_MessageVar = form.Verisign_Message.value;
+    		Verisign_RetriesVar = eval(form.Verisign_Retries.value);
+    		
+    		
+   		}//End of CalculateParams function
+   		
+   		//Function that will take the parameters calculated by CalculateParams and hit the relevant URL in the lower frame of tha page
+            function HitURL()
+       		{
+       			switch (PathVar) 
+    	      	{
+		      			case "NONE": alert("Please select an API"); break;
+			 		
+			     		case "sdp/api/ImportMembersModule": 
+                           if (OptVars!="")
+                            {
+                                window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"?"+"NR_OF_USERS=1"+"&COMMA_SEPARATED_COMMUNITY_IDS="+ComIDsVar+"&PROFILE_KEY0="+ProfKeyVar+"&MSISDN0="+MsisdnVar+"&REGISTRATION_CHANNEL0="+RegChannelVar+"&"+OptVars; break;
+                            }
+                            else
+                            {
+                                window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"?"+"NR_OF_USERS=1"+"&COMMA_SEPARATED_COMMUNITY_IDS="+ComIDsVar+"&PROFILE_KEY0="+ProfKeyVar+"&MSISDN0="+MsisdnVar+"&REGISTRATION_CHANNEL0="+RegChannelVar; break;
+                            }
+					
+                        case "sdp/api/MQubeTextAppSMSModule?medium=xml&dialog.carrier_id=4":
+                            if (MQube_RetriesVar=="0")
+                            {
+                                window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&dialog.umda=tel:"+MQube_MsisdnVar+"&dialog.service_code="+MQube_SCVar+"&dialog.message="+MQube_MessageVar; break;
+                            }
+                            else
+                            {
+                                while (MQube_RetriesVar>0)
+                                {
+                                    window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&dialog.umda=tel:"+MQube_MsisdnVar+"&dialog.service_code="+MQube_SCVar+"&dialog.message="+MQube_MessageVar;
+                                    MQube_MsisdnVar=MQube_MsisdnVar+1;
+                                    MQube_RetriesVar=MQube_RetriesVar-1;
+                                    alert("Retries left:"+MQube_RetriesVar+". "+"Just hit with msisdn:"+(MQube_MsisdnVar-1));
+                                }
+                                break;
+                            }
+					
+                        case "sdp/wind-msg-api/WindHttpPlatformHandler?medium=xml":
+                            if (WIND_RetriesVar=="0")
+                            {
+                                window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&oa="+WIND_MsisdnVar+"&da="+WIND_SCVar+"&txt="+WIND_MessageVar; break;
+                            }
+                            else
+                            {
+                                while (WIND_RetriesVar>0)
+                                {
+                                    window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&oa="+WIND_MsisdnVar+"&da="+WIND_SCVar+"&txt="+WIND_MessageVar;
+                                    WIND_MsisdnVar=WIND_MsisdnVar+1;
+                                    WIND_RetriesVar=WIND_RetriesVar-1;
+                                    alert("Retries left:"+WIND_RetriesVar+". "+"Just hit with msisdn:"+(WIND_MsisdnVar-1));
+                                }
+                                break;
+                            }
+					
+                        case "sdp/msg-api/KannelPlatformHandler?kchar=UTF-8&medium=xml&kcod=2":
+                            if (Kannel_RetriesVar=="0")
+                            {
+                            		window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&from="+Kannel_MsisdnVar+"&to="+Kannel_SCVar+"&smsc="+Kannel_SMSCVar+"&text="+Kannel_MessageVar; break;
+                            }
+                            else
+                            {
+                                while (Kannel_RetriesVar>0)
+                                {
+                                    window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&from="+Kannel_MsisdnVar+"&to="+Kannel_SCVar+"&smsc="+Kannel_SMSCVar+"&text="+Kannel_MessageVar;
+                                    Kannel_MsisdnVar=Kannel_MsisdnVar+1;
+                                    Kannel_RetriesVar=Kannel_RetriesVar-1;
+                                    alert("Retries left:"+Kannel_RetriesVar+". "+"Just hit with msisdn:"+(Kannel_MsisdnVar-1));
+                                }
+                                break;
+                            }
+					
+                        case "sdp/api/AveaSdpMOInjectionModule?sessionId=SESSION1&requestIdentifier=RQID999":
+                            if (Avea_RetriesVar=="0")
+                            {
+                                window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&msisdn="+Avea_MsisdnVar+"&shortcode="+Avea_SCVar+"&content="+Avea_MessageVar+"&ip="+ServerVar+"&port="+PortVar; break;
+                            }
+                            else
+                            {
+                                while (Avea_RetriesVar>0)
+                                {
+                                    window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&msisdn="+Avea_MsisdnVar+"&shortcode="+Avea_SCVar+"&content="+Avea_MessageVar+"&ip="+ServerVar+"&port="+PortVar;
+                                    Avea_MsisdnVar=Avea_MsisdnVar+1;
+                                    Avea_RetriesVar=Avea_RetriesVar-1;
+                                    alert("Retries left:"+Avea_RetriesVar+". "+"Just hit with msisdn:"+(Avea_MsisdnVar-1));
+                                }
+                                break;
+                            }
+					
+                        case "sdp/msg-api-globul/GlobulPlatformHandler?coding=0&charset=ISO-8859-1":
+                            if (Globul_RetriesVar=="0")
+                            {
+                                window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&from="+Globul_MsisdnVar+"&to="+Globul_SCVar+"&text="+Globul_MessageVar; break;
+                            }
+                            else
+                            {
+                                while (Globul_RetriesVar>0)
+                                {
+                                    window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&from="+Globul_MsisdnVar+"&to="+Globul_SCVar+"&text="+Globul_MessageVar;
+                                    Globul_MsisdnVar=Globul_MsisdnVar+1;
+                                    Globul_RetriesVar=Globul_RetriesVar-1;
+                                    alert("Retries left:"+Globul_RetriesVar+". "+"Just hit with msisdn:"+(Globul_MsisdnVar-1));
+                                }
+                                break;
+                            }
+					
+                        case "sdp/msg-api/VeriSignPlatformHandler?carrierId=4&senderState=alabama":
+                            if (Verisign_RetriesVar=="0")
+                            {
+                                window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&sender="+Verisign_MsisdnVar+"&serviceCode="+Verisign_SCVar+"&content="+Verisign_MessageVar; break;
+                            }
+                            else
+                            {
+                                while (Verisign_RetriesVar>0)
+                                {
+                                    window.top.Target.location="http://" +ServerVar+":"+PortVar+"/"+PathVar+"&sender="+Verisign_MsisdnVar+"&serviceCode="+Verisign_SCVar+"&content="+Verisign_MessageVar;
+                                    Verisign_MsisdnVar=Verisign_MsisdnVar+1;
+                                    Verisign_RetriesVar=Verisign_RetriesVar-1;
+                                    alert("Retries left:"+Verisign_RetriesVar+". "+"Just hit with msisdn:"+(Verisign_MsisdnVar-1));
+                                }
+                                break;
+                            }    
+    		  }
+		}//End of HitURL function
+		
+		function ShowURL()
+        {
+            switch (PathVar) 
+    	      	{
+		      			case "NONE": alert("Please select an API"); break;
+			 		
+			     		case "sdp/api/ImportMembersModule": 
+                           if (OptVars!="")
+                            {
+                                alert("http://" +ServerVar+":"+PortVar+"/"+PathVar+"?"+"NR_OF_USERS=1"+"&COMMA_SEPARATED_COMMUNITY_IDS="+ComIDsVar+"&PROFILE_KEY0="+ProfKeyVar+"&MSISDN0="+MsisdnVar+"&REGISTRATION_CHANNEL0="+RegChannelVar+"&"+OptVars); break;
+                            }
+                            else
+                            {
+                                alert("http://" +ServerVar+":"+PortVar+"/"+PathVar+"?"+"NR_OF_USERS=1"+"&COMMA_SEPARATED_COMMUNITY_IDS="+ComIDsVar+"&PROFILE_KEY0="+ProfKeyVar+"&MSISDN0="+MsisdnVar+"&REGISTRATION_CHANNEL0="+RegChannelVar); break;
+                            }
+					
+					//ShowURL function ignores the retries variable
+					
+                        case "sdp/api/MQubeTextAppSMSModule?medium=xml&dialog.carrier_id=4":
+                            alert("http://" +ServerVar+":"+PortVar+"/"+PathVar+"&dialog.umda=tel:"+MQube_MsisdnVar+"&dialog.service_code="+MQube_SCVar+"&dialog.message="+MQube_MessageVar); break;
+                            					
+                        case "sdp/wind-msg-api/WindHttpPlatformHandler?medium=xml":
+                            alert("http://" +ServerVar+":"+PortVar+"/"+PathVar+"&oa="+WIND_MsisdnVar+"&da="+WIND_SCVar+"&txt="+WIND_MessageVar); break;
+                            
+                        case "sdp/msg-api/KannelPlatformHandler?kchar=UTF-8&medium=xml&kcod=2":
+                            alert("http://" +ServerVar+":"+PortVar+"/"+PathVar+"&from="+Kannel_MsisdnVar+"&to="+Kannel_SCVar+"&smsc="+Kannel_SMSCVar+"&text="+Kannel_MessageVar); break;
+                            
+                        case "sdp/api/AveaSdpMOInjectionModule?sessionId=SESSION1&requestIdentifier=RQID999":
+                            alert("http://" +ServerVar+":"+PortVar+"/"+PathVar+"&msisdn="+Avea_MsisdnVar+"&shortcode="+Avea_SCVar+"&content="+Avea_MessageVar+"&ip="+ServerVar+"&port="+PortVar); break;
+                            
+                        case "sdp/msg-api-globul/GlobulPlatformHandler?coding=0&charset=ISO-8859-1":
+                            alert("http://" +ServerVar+":"+PortVar+"/"+PathVar+"&from="+Globul_MsisdnVar+"&to="+Globul_SCVar+"&text="+Globul_MessageVar); break;
+                            
+                        case "sdp/msg-api/VeriSignPlatformHandler?carrierId=4&senderState=alabama":
+                            alert("http://" +ServerVar+":"+PortVar+"/"+PathVar+"&sender="+Verisign_MsisdnVar+"&serviceCode="+Verisign_SCVar+"&content="+Verisign_MessageVar); break;
+                    }
+		}//End of ShowURL function
+		  
+		
+			function ShowParams (form)
+			{
+				var PathBoxVar = form.Path.value;
+				switch (PathBoxVar)
+				{
+					case "sdp/api/ImportMembersModule": document.getElementById(1).style.display="block", document.getElementById(2).style.display="none", document.getElementById(3).style.display="none", document.getElementById(4).style.display="none", document.getElementById(5).style.display="none", document.getElementById(6).style.display="none", document.getElementById(7).style.display="none", document.getElementById(8).style.display="none"; break;
+					case "sdp/api/MQubeTextAppSMSModule?medium=xml&dialog.carrier_id=4": document.getElementById(1).style.display="none", document.getElementById(2).style.display="block", document.getElementById(3).style.display="none", document.getElementById(4).style.display="none", document.getElementById(5).style.display="none", document.getElementById(6).style.display="none", document.getElementById(7).style.display="none", document.getElementById(8).style.display="none"; break;
+					case "sdp/wind-msg-api/WindHttpPlatformHandler?medium=xml": document.getElementById(1).style.display="none", document.getElementById(2).style.display="none", document.getElementById(3).style.display="block", document.getElementById(4).style.display="none", document.getElementById(5).style.display="none", document.getElementById(6).style.display="none", document.getElementById(7).style.display="none", document.getElementById(8).style.display="none"; break;
+					case "sdp/msg-api/KannelPlatformHandler?kchar=UTF-8&medium=xml&kcod=2": document.getElementById(1).style.display="none", document.getElementById(2).style.display="none", document.getElementById(3).style.display="none", document.getElementById(4).style.display="block", document.getElementById(5).style.display="none", document.getElementById(6).style.display="none", document.getElementById(7).style.display="none", document.getElementById(8).style.display="none"; break;
+					case "sdp/api/AveaSdpMOInjectionModule?sessionId=SESSION1&requestIdentifier=RQID999": document.getElementById(1).style.display="none", document.getElementById(2).style.display="none", document.getElementById(3).style.display="none", document.getElementById(4).style.display="none", document.getElementById(5).style.display="block", document.getElementById(6).style.display="none", document.getElementById(7).style.display="none", document.getElementById(8).style.display="none"; break;
+					case "sdp/msg-api-globul/GlobulPlatformHandler?coding=0&charset=ISO-8859-1": document.getElementById(1).style.display="none", document.getElementById(2).style.display="none", document.getElementById(3).style.display="none", document.getElementById(4).style.display="none", document.getElementById(5).style.display="none", document.getElementById(6).style.display="block", document.getElementById(7).style.display="none", document.getElementById(8).style.display="none"; break;
+					case "sdp/msg-api/VeriSignPlatformHandler?carrierId=4&senderState=alabama": document.getElementById(1).style.display="none", document.getElementById(2).style.display="none", document.getElementById(3).style.display="none", document.getElementById(4).style.display="none", document.getElementById(5).style.display="none", document.getElementById(6).style.display="none", document.getElementById(7).style.display="block", document.getElementById(8).style.display="none"; break;
+					case "NONE": document.getElementById(1).style.display="none", document.getElementById(2).style.display="none", document.getElementById(3).style.display="none", document.getElementById(4).style.display="none", document.getElementById(5).style.display="none", document.getElementById(6).style.display="none", document.getElementById(7).style.display="none", document.getElementById(8).style.display="block"; break;
+				}
+			}
+			function HideParams (form)
+			{
+				document.getElementById(1).style.display="none", document.getElementById(2).style.display="none", document.getElementById(3).style.display="none", document.getElementById(4).style.display="none", document.getElementById(5).style.display="none", document.getElementById(6).style.display="none", document.getElementById(7).style.display="none", document.getElementById(8).style.display="block";
+			}
+			//In order to fill the port field according to the server selection
+			function AutoCompletePort (form)
+			{
+				var ServerBoxVar = form.Server.value;
+				document.getElementById(22).value="";
+				switch (ServerBoxVar)
+				{
+					case "WIND QA": document.getElementById(20).value="3301"; break;
+					case "WIND Staging": document.getElementById(20).value="80"; break;
+					case "WIND Live": document.getElementById(20).value="80"; break;
+					case "AVEA QA": document.getElementById(20).value="5580"; break;
+					case "AVEA Live": document.getElementById(20).value="80"; break;
+					case "Globul Live": document.getElementById(20).value="4080"; break;
+					case "Orange France Staging": document.getElementById(20).value="80"; break;
+					case "Orange France Live": document.getElementById(20).value="8080"; break;
+					case "QTel Staging": document.getElementById(20).value="8080"; break;
+					case "QTel Live": document.getElementById(20).value="8080"; break;
+					case "": document.getElementById(20).value=""; break;
+				}
+			}
+			//In order to clear the contents of the Port field as they are not needed as autocompleted
+			function ClearPort (form)
+			{
+				IPVar = form.IP.value;
+				if (IPVar!="")
+				{
+					document.getElementById(20).value="";
+				}
+			}
+		</SCRIPT>
+	</head>
+    <body>
+		<img src="Images/VeltiLogo.JPG" alt="VeltiLogo" height="25" width="50"/>
+		<form NAME="httpform" ACTION="" METHOD="GET">
+			You may use the below form to produce the http request for the ImportModule of Mobile CRM's WEB/WAP API and for the MO injections for MQube/Kannel/Avea/Globul messaging platforms<br>
+			Type the IP and the Port of the system you want to test and then select the module from the Path drop down list, then the appropriate parametes will be visible for you to enter<br>
+			<br>
+			Select a server: <select name="Server" value="" onchange="AutoCompletePort(this.form)">
+						<option value=""></option>
+						<option value="WIND QA">WIND QA</option>
+						<option value="WIND Staging">WIND Staging</option>
+						<option value="WIND Live">WIND Live</option>
+						<option value="AVEA QA">AVEA QA</option>
+						<option value="AVEA Live">AVEA Live</option>
+						<option value="Globul Live">Globul Live</option>
+						<option value="Orange France Staging">Orange France Staging</option>
+						<option value="Orange France Live">Orange France Live</option>
+						<option value="QTel Staging">QTel Staging</option>
+						<option value="QTel Live">QTel Live</option>
+					</select>
+				<!--In case the server you want does not exist in the drop down, you can type an IP/URL. Typing here clears the Port field and ignores the Server option-->
+				Or type the IP/URL you want: <input name="IP" value="" id="22" size="16" onchange="ClearPort(this.form)"> and hit enter (server choice will be ignored)<br>
+			Port: <input name="Porta" value="" id="20" size="4"><br>
+			Path: <select name="Path" value="" id="21" onchange="ShowParams(this.form)">
+							<option value = "NONE"></option>
+							<option value = "sdp/api/ImportMembersModule">Mobile CRM Import Module</option>
+							<option value = "sdp/api/MQubeTextAppSMSModule?medium=xml&dialog.carrier_id=4">MQube Platform MO injection</option>
+							<option value = "sdp/wind-msg-api/WindHttpPlatformHandler?medium=xml">WIND http Platform MO injection</option>
+							<option value = "sdp/msg-api/KannelPlatformHandler?kchar=UTF-8&medium=xml&kcod=2">Kannel Platform MO injection</option>
+							<option value = "sdp/api/AveaSdpMOInjectionModule?sessionId=SESSION1&requestIdentifier=RQID999">AVEA Platform MO injection</option>
+							<option value = "sdp/msg-api-globul/GlobulPlatformHandler?coding=0&charset=ISO-8859-1">Globul Platform MO injection</option>
+							<option value = "sdp/msg-api/VeriSignPlatformHandler?carrierId=4&senderState=alabama">Verisign Platform MO injection</option>
+						</select><br>
+------------------------------------------------------------------------------------------------------------------------------------
+						<br>
+			<div id="1" style="display: none">
+				(Mobile CRM Import Module) Community ids: <input name="ComIDs" value="" size="20"> (Comma Separated)<br>
+				(Mobile CRM Import Module) Profile Key: <input name="ProfKey" value="" size="10"><br>
+				(Mobile CRM Import Module) Msisdn: <input name="Msisdn" value="" size="10"><br>
+				(Mobile CRM Import Module) Registration Channel: <select name="RegChannel" value="">
+						<option value = "WAP">WAP</option>
+						<option value = "WEB">WEB</option>
+					</select><br>
+				<font color="#E421D6">---Optional Values---</font> <br>
+				(Mobile CRM Import Module) Delivery Enabled: <input name="Delivery_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Creation Date: <input name="Created" value="" size="30"> Valid Format dd/mm/yyyy hh24:mi:ss<br>
+				(Mobile CRM Import Module) Last Updated: <input name="Last_Updated" value="" size="30"> Valid Format dd/mm/yyyy hh24:mi:ss<br>
+				(Mobile CRM Import Module) Is Male? <input name="Is_Male" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Is GPRS Enabled: <input name="Is_GPRS" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Is 3G Enabled: <input name="Is_3G" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Is Promo Consent Needed: <input name="Is_Promo_Consent_Needed" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Birth Date: <input name="Birth_Date" value="" size="30"> Valid Format dd/mm/yyyy hh24:mi:ss<br>
+				(Mobile CRM Import Module) Email: <input name="Email" value="" size="50"> <br>
+				(Mobile CRM Import Module) First Name: <input name="FName" value="" size="30"> <br>
+				(Mobile CRM Import Module) Last Name: <input name="LName" value="" size="40"> <br>
+				(Mobile CRM Import Module) Registration Date: <input name="Reg_Date" value="" size="30"> Valid Format dd/mm/yyyy hh24:mi:ss<br>
+				(Mobile CRM Import Module) Estimated Birth Date: <input name="Est_Birth_Date" value="" size="30"> Valid Format dd/mm/yyyy hh24:mi:ss<br>
+				(Mobile CRM Import Module) Marital Status: <input name="Marital_Status" value="" size="3"> A number ranging from 0, to 4. 0 for Single, 1 for Married, 2 for Widowed, 3 for Divorced, 4 for Connected <br>
+				(Mobile CRM Import Module) Address: <input name="Address" value="" size="50"> <br>
+				(Mobile CRM Import Module) Zip Code: <input name="Zip_Code" value="" size="10"> <br>
+				(Mobile CRM Import Module) Postal Code: <input name="Postal_Code" value="" size="10"> <br>
+				(Mobile CRM Import Module) City: <input name="City" value="" size="30"> <br>
+				(Mobile CRM Import Module) State: <input name="State" value="" size="30"> <br>
+				(Mobile CRM Import Module) Country: <input name="Country" value="" size="30"> <br>
+				(Mobile CRM Import Module) Basketball team: <input name="Basketball_Team" value="" size="30"> <br>
+				(Mobile CRM Import Module) Football team: <input name="Football_Team" value="" size="30"> <br>
+				(Mobile CRM Import Module) Baseball team: <input name="Baseball_Team" value="" size="30"> <br>
+				(Mobile CRM Import Module) Softball team: <input name="Softball_Team" value="" size="30"> <br>
+				(Mobile CRM Import Module) Favorite Artist: <input name="Favorite_Artist" value="" size="30"> <br>
+				(Mobile CRM Import Module) Bulk Consent: <input name="Bulk_Consent" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Handset Brand: <input name="Handset_Brand" value="" size="30"> <br>
+				(Mobile CRM Import Module) Handset Model: <input name="Handset_Model" value="" size="30"> <br>
+				(Mobile CRM Import Module) Realtones Enabled: <input name="Realtones_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Ringealtones Enabled: <input name="Ringtones_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Wallpapers Enabled: <input name="Wallpapers_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Screensavers Enabled: <input name="Screensavers_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Video Enabled: <input name="Video_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Web Registration Id: <input name="Web_Reg_id" value="" size="50"> <br>
+				(Mobile CRM Import Module) Wap Registration Id: <input name="Wap_Reg_id" value="" size="50"> <br>
+				(Mobile CRM Import Module) Preferred ISO language Code: <input name="Pref_ISO_Lang_Code" value="" size="5"> example: el <br>
+				(Mobile CRM Import Module) Is 3rd Party Enabled: <input name="Third_Party_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Monthly Income: <input name="Monthly_Income" value="" size="10"> <br>
+				(Mobile CRM Import Module) Yearly Income: <input name="Yearly_Income" value="" size="10"> <br>
+				(Mobile CRM Import Module) Country ID: <input name="Country_ID" value="" size="4"> <br>
+				(Mobile CRM Import Module) Sports Service: <input name="Sports_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Music Service: <input name="Music_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) News Service: <input name="News_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Games Service: <input name="Games_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Social Service: <input name="Social_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Sports Enabled: <input name="Sports_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Music Enabled: <input name="Music_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) News Enabled: <input name="News_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Games Enabled: <input name="Games_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Social Enabled: <input name="Social_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Students Service: <input name="Students_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Parents Service: <input name="Parents_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Faculty Staff Service: <input name="Faculty_Staff_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Band Service: <input name="Band_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Football Service: <input name="Football_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Basketball Service: <input name="Basketball_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Performing Arts Service: <input name="Performing_Arts_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Senior Class Service: <input name="Senior_Class_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) School Booster Service: <input name="School_Booster_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Yall VS Us Service: <input name="Yall_vs_Us_Service" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Students Enabled: <input name="Students_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Parents Enabled: <input name="Parents_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Faculty Staff Enabled: <input name="Faculty_Staff_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Band Enabled: <input name="Band_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Football Enabled: <input name="Football_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Basketball Enabled: <input name="Basketball_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Performing Arts Enabled: <input name="Performing_Arts_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Senior Class Enabled: <input name="Senior_Class_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) School Booster Enabled: <input name="School_Booster_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Yall VS Us Enabled: <input name="Yall_vs_Us_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) User Agent: <input name="User_Agent" value="" size="50"> <br>
+				(Mobile CRM Import Module) Roaming Enabled: <input name="Roaming_Enabled" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Secondary Address: <input name="Secondary_Address" value="" size="30"> <br>
+				(Mobile CRM Import Module) Prepaid: <input name="Prepaid" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) Postpaid: <input name="Postpaid" value="" size="3"> 0 or 1 <br>
+				(Mobile CRM Import Module) White Hours From Time: <input name="From_Time" value="" size="3"> 0 - 24 <br>
+				(Mobile CRM Import Module) White Hours Till Time: <input name="Till_Time" value="" size="3"> 0 - 24 <br>
+				(Mobile CRM Import Module) Status: <input name="Status" value="" size="10"> Active or Paused <br>
+				(Mobile CRM Import Module) Pause Days: <input name="Pause_Days" value="" size="3"> 0 - 91 <br>
+			                                                                                                                           
+------------------------------------------------------------------------------------------------------------------------------------
+			</div>
+			<div id="2" style="display: none">
+				(MQube MO Injection Module) Msisdn: <input name="MQube_Msisdn" value="" size="10"><br>
+				(MQube MO Injection Module) Shortcode: <input name="MQube_SC" value="" size="5"><br>
+				(MQube MO Injection Module) Text: <input name="MQube_Message" value="" size="160"><br>
+				(MQube MO Injection Module) Number of retries: <input name="MQube_Retries" value="0" size="8"> For continuous msisdn starting from the one you inserted. 0 for just one try<br>
+    
+------------------------------------------------------------------------------------------------------------------------------------
+			</div>
+			<div id="3" style="display: none">
+				(WIND http MO Injection Module) Msisdn: <input name="WIND_Msisdn" value="" size="10"><br>
+				(WIND http MO Injection Module) Shortcode: <input name="WIND_SC" value="" size="5"><br>
+				(WIND http MO Injection Module) Text: <input name="WIND_Message" value="" size="160"><br>
+				(WIND http MO Injection Module) Number of retries: <input name="WIND_Retries" value="0" size="8"> For continuous msisdn starting from the one you inserted. 0 for just one try<br>
+
+------------------------------------------------------------------------------------------------------------------------------------
+			</div>
+			<div id="4" style="display: none">
+				(Kannel MO Injection Module) Msisdn: <input name="Kannel_Msisdn" value="" size="10"><br>
+				(Kannel MO Injection Module) Shortcode: <input name="Kannel_SC" value="" size="5"><br>
+				(Kannel MO Injection Module) Text: <input name="Kannel_Message" value="" size="160"><br>
+				(Kannel MO Injection Module) SMSC: <input name="Kannel_SMSC" value="" size="20"><br>
+				(Kannel MO Injection Module) Number of retries: <input name="Kannel_Retries" value="0" size="8"> For continuous msisdn starting from the one you inserted. 0 for just one try<br>
+
+------------------------------------------------------------------------------------------------------------------------------------
+			</div>
+			<div id="5" style="display: none">
+				(AVEA MO Injection Module) Msisdn: <input name="Avea_Msisdn" value="" size="10"><br>
+				(AVEA MO Injection Module) Shortcode: <input name="Avea_SC" value="" size="5"><br>
+				(AVEA MO Injection Module) Text: <input name="Avea_Message" value="" size="160"><br>
+				(AVEA MO Injection Module) Number of retries: <input name="Avea_Retries" value="0" size="8"> For continuous msisdn starting from the one you inserted. 0 for just one try<br>
+
+------------------------------------------------------------------------------------------------------------------------------------
+			</div>
+			<div id="6" style="display: none">
+				(Globul MO Injection Module) Msisdn: <input name="Globul_Msisdn" value="" size="10"><br>
+				(Globul MO Injection Module) Shortcode: <input name="Globul_SC" value="" size="5"><br>
+				(Globul MO Injection Module) Text: <input name="Globul_Message" value="" size="160"><br>
+				(Globul MO Injection Module) Number of retries: <input name="Globul_Retries" value="0" size="8"> For continuous msisdn starting from the one you inserted. 0 for just one try<br>
+				
+------------------------------------------------------------------------------------------------------------------------------------
+			</div>
+			<div id="7" style="display: none">
+				(Verisign MO Injection Module) Msisdn: <input name="Verisign_Msisdn" value="" size="10"><br>
+				(Verisign MO Injection Module) Shortcode: <input name="Verisign_SC" value="" size="5"><br>
+				(Verisign MO Injection Module) Text: <input name="Verisign_Message" value="" size="160"><br>
+				(Verisign MO Injection Module) Number of retries: <input name="Verisign_Retries" value="0" size="8"> For continuous msisdn starting from the one you inserted. 0 for just one try<br>
+
+------------------------------------------------------------------------------------------------------------------------------------
+			</div>
+			<div id="8" style="display: block">
+------------------------------------------------------------------------------------------------------------------------------------
+			</div>
+			<INPUT TYPE="button" NAME="button" Value="Submit" onClick="InvokeAPI(this.form)">
+			<INPUT TYPE="reset" Value="Clear the Form" onClick="HideParams(this.form)">
+			<INPUT TYPE="button" NAME="button" VALUE="Show Produced URL" onClick="ProduceURL(this.form)">
+		</form>
+		Copyright (c) H. Psarropoulos <img src="Images/MyLogo.gif" alt="Garfield_gif" height="30" width="30"/>
+	</body>
+</html>
